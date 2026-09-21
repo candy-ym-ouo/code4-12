@@ -4,6 +4,7 @@ import { useRoute, useRouter } from "vue-router";
 import { ElMessage, ElMessageBox } from "element-plus";
 import { request, ApiError } from "@/lib/api";
 import { craftTypeLabels, statusLabels, type Material } from "@/types";
+import CompatibilityPanel from "@/components/CompatibilityPanel.vue";
 
 const route = useRoute();
 const router = useRouter();
@@ -45,6 +46,7 @@ onMounted(load);
         <div>
           <el-button v-if="!material.archivedAt" @click="router.push(`/materials/${material.id}/edit`)">编辑</el-button>
           <el-button type="primary" @click="router.push({ path: '/batches/new', query: { materialId: material.id } })">新批次入库</el-button>
+          <el-button type="warning" plain @click="router.push({ path: '/substitutions/new', query: { materialId: material.id } })">寻找替代品</el-button>
           <el-button v-if="!material.archivedAt" type="danger" plain @click="archive">归档</el-button>
         </div>
       </header>
@@ -78,6 +80,9 @@ onMounted(load);
         <el-empty v-if="material.batches.length === 0" description="该材料还没有批次">
           <el-button type="primary" @click="router.push({ path: '/batches/new', query: { materialId: material.id } })">录入第一批材料</el-button>
         </el-empty>
+      </section>
+      <section class="panel">
+        <CompatibilityPanel :material-id="material.id" />
       </section>
     </template>
   </div>

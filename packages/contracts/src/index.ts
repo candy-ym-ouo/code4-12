@@ -40,6 +40,16 @@ export type ColorChangeType = (typeof colorChangeTypes)[number];
 export const attachmentOwnerTypes = ["BATCH", "COLOR_CHANGE", "PROJECT", "CONSUMPTION"] as const;
 export type AttachmentOwnerType = (typeof attachmentOwnerTypes)[number];
 
+export const substitutionRejectCodes = [
+  "CRAFT_MISMATCH",
+  "COLOR_MISMATCH",
+  "UNIT_INCOMPATIBLE",
+  "COMPATIBILITY_EXCLUDED",
+  "INSUFFICIENT_STOCK",
+  "CANDIDATE_ARCHIVED"
+] as const;
+export type SubstitutionRejectCode = (typeof substitutionRejectCodes)[number];
+
 export const unitFamilies = {
   g: { family: "MASS", base: "g", factor: "1" },
   kg: { family: "MASS", base: "g", factor: "1000" },
@@ -251,6 +261,53 @@ export const reverseConsumptionSchema = z.object({
 export const projectStatusSchema = z.object({
   status: z.enum(projectStatuses),
   version: z.number().int().positive()
+});
+
+const ruleWeight = z.number().int().min(0).max(100);
+
+export const substitutionRuleInputSchema = z.object({
+  name: z.string().trim().min(1).max(120),
+  requireCraftOverlap: z.boolean(),
+  requireColorMatch: z.boolean(),
+  requireUnitFamily: z.boolean(),
+  requireStock: z.boolean(),
+  colorDistanceThreshold: z.number().min(0).max(450),
+  weightCraft: ruleWeight,
+  weightColor: ruleWeight,
+  weightUnit: ruleWeight,
+  weightCompatibility: ruleWeight,
+  weightStock: ruleWeight,
+  notes: z.string().trim().max(2000).nullable().optional()
+}).superRefine((rule, ctx) => {
+  const weightSum = rule.weightCraft + rule.weightColor + rule.weightUnit + rule.weightCompatibility + rule.weightStock;
+  if (weightSum !== 100) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: "五项权重之和必须等于 100", path: ["weightCraft"] });
+  }
+});
+
+export const compatibilityInputSchema = z.object({
+  otherMaterialId: z.string().uuid(),
+  direction: z.enum(["BIDIRECTIONAL", "ONE_WAY"]),
+  compatible: z.boolean(),
+  note: z.string().trim().max(1000).nullable().optional()
+});
+
+export const compatibilityPatchSchema = z.object({
+  compatible: z.boolean(),
+  direction: z.enum(["BIDIRECTIONAL", "ONE_WAY"]).optional(),
+  note: z.string().trim().max(1000).nullable().optional()
+});
+
+export const analysisInputSchema = z.object({
+  materialId: z.string().uuid(),
+  requiredQuantity: positiveQuantity.optional(),
+  unit: z.enum(stockUnits).optional(),
+  projectId: z.string().uuid().nullable().optional(),
+  projectRequirementId: z.string().uuid().nullable().optional(),
+  notes: z.string().trim().max(2000).nullable().optional()
+}).refine((value) => (value.requiredQuantity === undefined ? value.unit === undefined : true), {
+  message: "指定需求单位时必须同时提供需求数量",
+  path: ["unit"]
 });
 
 export type Pagination = {

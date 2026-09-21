@@ -93,7 +93,13 @@ onMounted(load);
           <el-table-column label="实际使用" width="150"><template #default="{ row }">{{ row.usedQuantity }} {{ row.stockUnit }}</template></el-table-column>
           <el-table-column label="损耗" width="150"><template #default="{ row }">{{ row.wasteQuantity }} {{ row.stockUnit }}</template></el-table-column>
           <el-table-column label="消耗笔数" prop="consumptionCount" width="100" />
-          <el-table-column label="操作" width="110"><template #default="{ row }"><el-button link type="danger" :disabled="row.referenceCount>0 || isReadOnly" @click="deleteRequirement(row.id)">删除</el-button></template></el-table-column>
+          <el-table-column label="操作" width="190">
+            <template #default="{ row }">
+              <el-button link type="primary"
+                         @click="router.push({ path: '/substitutions/new', query: { materialId: row.materialId, projectId: project.id } })">找替代品</el-button>
+              <el-button link type="danger" :disabled="row.referenceCount>0 || isReadOnly" @click="deleteRequirement(row.id)">删除</el-button>
+            </template>
+          </el-table-column>
         </el-table>
         <el-empty v-if="project.requirements.length===0" description="还没有计划用料" />
       </section>

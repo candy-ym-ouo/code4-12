@@ -241,3 +241,94 @@
 - `file`
 
 支持 JPEG、PNG、WebP，默认最大 10 MB。
+
+## 10. 材料替代推荐
+
+推荐按工艺、颜色、单位（量纲）、显式兼容性、库存五个维度评分。每个候选都会保留各维度分数与解释：通过硬性条件的进入推荐列表并按综合分降序，其余进入拒绝列表并附带结构化拒绝原因。
+
+拒绝原因代码：
+
+| 代码 | 含义 |
+| --- | --- |
+| `CRAFT_MISMATCH` | 适用工艺与所需工艺无重叠 |
+| `COLOR_MISMATCH` | 颜色超过色差阈值或候选缺少颜色信息 |
+| `UNIT_INCOMPATIBLE` | 计量单位不属于同一量纲，无法换算 |
+| `COMPATIBILITY_EXCLUDED` | 兼容性矩阵明确标注不可替代 |
+| `INSUFFICIENT_STOCK` | 可用库存不满足需求量 |
+| `CANDIDATE_ARCHIVED` | 候选材料已归档 |
+
+### 10.1 规则版本
+
+| 方法 | 路径 | 说明 |
+| --- | --- | --- |
+| GET | `/substitution/rules` | 全部规则版本 |
+| GET | `/substitution/rules/active` | 当前启用版本 |
+| POST | `/substitution/rules` | 发布新版本并自动启用（旧版本停用） |
+| POST | `/substitution/rules/:version/activate` | 重新启用历史版本 |
+
+规则改版采用追加版本方式，历史分析保留创建时的版本号；发布新版本不会自动改动旧分析，需要在分析上显式触发重算。
+
+```json
+{
+  "name": "2026 秋季放宽颜色规则",
+  "requireCraftOverlap": true,
+  "requireColorMatch": false,
+  "requireUnitFamily": true,
+  "requireStock": false,
+  "colorDistanceThreshold": 60,
+  "weightCraft": 30,
+  "weightColor": 20,
+  "weightUnit": 15,
+  "weightCompatibility": 25,
+  "weightStock": 10,
+  "notes": "五个权重之和必须等于 100"
+}
+```
+
+`require*` 字段是硬性拒绝开关；权重用于推荐项排序。色差使用 redmean 距离，阈值范围 0-450。
+
+### 10.2 材料兼容性矩阵
+
+| 方法 | 路径 | 说明 |
+| --- | --- | --- |
+| GET/POST | `/materials/:id/compatibility` | 查询或新增兼容关系 |
+| PATCH/DELETE | `/materials/:id/compatibility/:ruleId` | 更新或删除 |
+
+```json
+{
+  "otherMaterialId": "uuid",
+  "direction": "BIDIRECTIONAL",
+  "compatible": false,
+  "note": "缩率差异过大，不能混用"
+}
+```
+
+- `BIDIRECTIONAL`：两方向都生效；`ONE_WAY`：仅当前材料 → 另一材料生效。
+- `compatible=false` 是硬性拒绝项，即使工艺、颜色、单位全部匹配也不会推荐。
+
+### 10.3 分析、重算与人工锁定
+
+| 方法 | 路径 | 说明 |
+| --- | --- | --- |
+| GET/POST | `/substitution/analyses` | 分析列表（支持 `materialId`、`projectId`）或创建并立即计算 |
+| GET | `/substitution/analyses/:id` | 分析详情，含全部候选、维度分数与拒绝原因 |
+| POST | `/substitution/analyses/:id/recompute` | 按当前启用规则重算未锁定候选 |
+| POST | `/substitution/analyses/:id/candidates/:candidateId/lock` | 人工锁定候选结果 |
+| DELETE | `/substitution/analyses/:id/candidates/:candidateId/lock` | 解锁 |
+
+创建分析：
+
+```json
+{
+  "materialId": "uuid",
+  "requiredQuantity": "500",
+  "unit": "g",
+  "projectId": null,
+  "notes": "苏木缺货，找替代品"
+}
+```
+
+候选详情中的 `scoreBreakdown` 按 `craft`、`color`、`unit`、`compatibility`、`stock` 给出 0-1 分、等级和中文说明，`rejectedReasons` 给出代码与中文解释。
+
+人工锁定保证：锁定候选的结论（推荐/拒绝）、综合分、维度分数、拒绝原因与人工排序在重算时一律不覆盖；解锁后才会参与后续重算。重算只更新未锁定项，分析的 `ruleVersion` 同步为当前启用版本。
+
