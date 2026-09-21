@@ -241,3 +241,89 @@
 - `file`
 
 支持 JPEG、PNG、WebP，默认最大 10 MB。
+
+## 10. 材料替代推荐
+
+### 10.1 评分规则版本
+
+规则集不可变，调整参数即发布新版本并自动归档旧版本；任意时刻只有一个生效版本。
+
+| 方法 | 路径 | 说明 |
+| --- | --- | --- |
+| GET | `/substitution-rules` | 全部规则版本（含已归档） |
+| POST | `/substitution-rules` | 发布新规则版本，旧版本自动归档 |
+
+规则参数：
+
+```json
+{
+  "name": "默认规则",
+  "requireSameCraft": true,
+  "requireUnitCompatibility": true,
+  "requireInStock": false,
+  "includeArchived": false,
+  "maxColorDistance": null,
+  "craftWeight": 0.35,
+  "colorWeight": 0.25,
+  "unitWeight": 0.2,
+  "stockWeight": 0.2,
+  "allowBonus": 0.1
+}
+```
+
+- `requireSameCraft`、`requireUnitCompatibility`、`requireInStock`：不满足时候选进入 `REJECTED` 并记录原因码。
+- `maxColorDistance`：redmean RGB 色差值硬阈值（0–765），留空 `null` 表示不按颜色硬拒绝。
+- `craftWeight/colorWeight/unitWeight/stockWeight`：四个评分维度权重，缺失数据（如未设置颜色）的维度不参与，其权重在其余维度间自动归一化。
+- `allowBonus`：人工标记 `ALLOWED` 的兼容关系可获得的最高加分（加分不使总分超过 1）。
+
+### 10.2 材料兼容关系
+
+| 方法 | 路径 | 说明 |
+| --- | --- | --- |
+| GET | `/materials/:id/compatibility` | 某材料的全部人工兼容关系 |
+| PUT | `/materials/:id/compatibility/:candidateId` | 设置（upsert）允许或禁止 |
+| DELETE | `/materials/:id/compatibility/:candidateId` | 删除兼容关系 |
+
+- `ALLOWED`：候选评分加分，并在结果中记录正向原因。
+- `BLOCKED`：硬性拒绝（原因码 `COMPATIBILITY_BLOCKED`），即使工艺、单位、颜色全部匹配也不会推荐。
+
+### 10.3 推荐结果
+
+| 方法 | 路径 | 说明 |
+| --- | --- | --- |
+| GET | `/materials/:id/substitutions` | 推荐列表（含拒绝行）与规则版本状态 |
+| POST | `/materials/:id/substitutions/recalculate` | 按当前生效规则重算该材料 |
+| POST | `/substitutions/recalculate-all` | 重算所有已计算过的材料 |
+| POST | `/substitutions/:id/lock` | 人工锁定一条结果（可带 `lockNote`） |
+| POST | `/substitutions/:id/unlock` | 解除锁定 |
+
+拒绝原因码：`CRAFT_MISMATCH`、`UNIT_INCOMPATIBLE`、`NO_STOCK`、`CANDIDATE_ARCHIVED`、`COLOR_DISTANCE_EXCEEDED`、`COMPATIBILITY_BLOCKED`。
+
+推荐行示例：
+
+```json
+{
+  "id": "uuid",
+  "candidateId": "uuid",
+  "candidateName": "苏木染料",
+  "status": "SUGGESTED",
+  "score": "0.8200",
+  "rankPosition": 1,
+  "dimensions": {
+    "craft": { "score": 1, "sharedCrafts": ["DYEING"] },
+    "color": { "score": 0.9, "distance": 30.2 },
+    "unit": { "score": 1, "compatible": true, "exactMatch": true },
+    "stock": { "score": 0.8, "convertedQuantity": 800, "referenceQuantity": 1000 },
+    "compatibility": { "decision": null, "bonusApplied": 0 }
+  },
+  "reasons": [],
+  "ruleVersion": 2,
+  "locked": false
+}
+```
+
+重算与锁定语义：
+
+- 重算只删除并重建**未锁定**结果；`locked=true` 的行（含其分数、拒绝原因和规则版本快照）原样保留，不参与重新排名。
+- 列表中的 `stale=true` 表示未锁定结果基于旧规则版本生成，可在需要时重算；已锁定结果不会被标记为过期覆盖对象。
+- 排名按总分降序，平局按候选名称、ID 兜底，结果确定可复现。

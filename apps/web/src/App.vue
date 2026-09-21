@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted } from "vue";
 import { useRoute, useRouter } from "vue-router";
-import { Box, Collection, DataAnalysis, Document, FolderOpened, Location, Setting, Tickets } from "@element-plus/icons-vue";
+import { Box, Collection, DataAnalysis, Document, FolderOpened, Location, Setting, Tickets, Connection } from "@element-plus/icons-vue";
 import { ElMessage } from "element-plus";
 import { useAuthStore } from "@/stores/auth";
 
@@ -16,6 +16,7 @@ const activeMenu = computed(() => {
   if (route.path.startsWith("/materials")) return "/materials";
   if (route.path.startsWith("/batches")) return "/batches";
   if (route.path.startsWith("/projects")) return "/projects";
+  if (route.path.startsWith("/substitutions")) return "/substitutions";
   if (route.path.startsWith("/consumptions")) return "/consumptions";
   if (route.path.startsWith("/sources")) return "/sources";
   if (route.path.startsWith("/locations")) return "/locations";
@@ -58,6 +59,7 @@ async function logout() {
         <el-menu-item index="/materials"><el-icon><Box /></el-icon><span>材料档案</span></el-menu-item>
         <el-menu-item index="/batches"><el-icon><Collection /></el-icon><span>批次库存</span></el-menu-item>
         <el-menu-item index="/projects"><el-icon><FolderOpened /></el-icon><span>项目</span></el-menu-item>
+        <el-menu-item index="/substitutions"><el-icon><Connection /></el-icon><span>替代推荐</span></el-menu-item>
         <el-menu-item index="/consumptions"><el-icon><Document /></el-icon><span>消耗记录</span></el-menu-item>
         <el-menu-item index="/sources"><el-icon><Tickets /></el-icon><span>来源</span></el-menu-item>
         <el-menu-item index="/locations"><el-icon><Location /></el-icon><span>存放位置</span></el-menu-item>

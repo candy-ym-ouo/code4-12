@@ -138,3 +138,78 @@ export const movementLabels: Record<string, string> = {
   ADJUSTMENT_OUT: "盘减",
   REVERSAL: "撤销恢复"
 };
+
+export type SubstitutionRuleSet = {
+  id: string;
+  version: number;
+  name: string;
+  requireSameCraft: boolean;
+  requireUnitCompatibility: boolean;
+  requireInStock: boolean;
+  includeArchived: boolean;
+  maxColorDistance: string | null;
+  craftWeight: string;
+  colorWeight: string;
+  unitWeight: string;
+  stockWeight: string;
+  allowBonus: string;
+  status: "ACTIVE" | "ARCHIVED";
+  createdAt: string;
+  archivedAt: string | null;
+};
+
+export type RecommendationReason = {
+  code: string;
+  message: string;
+};
+
+export type RecommendationDimensions = {
+  craft: { score: number; sharedCrafts: string[] };
+  color: { score: number | null; distance: number | null };
+  unit: { score: number; compatible: boolean; exactMatch: boolean; sourceUnit: string; candidateUnit: string };
+  stock: { score: number | null; convertedQuantity: number | null; referenceQuantity: number | null };
+  compatibility: { decision: "ALLOWED" | "BLOCKED" | null; bonusApplied: number };
+};
+
+export type Recommendation = {
+  id: string;
+  candidateId: string;
+  candidateName: string;
+  candidateCraftTypes: string[];
+  candidateUnit: string;
+  candidateColorHex: string | null;
+  candidateArchived: boolean;
+  candidateRemainingQuantity: string | null;
+  status: "SUGGESTED" | "REJECTED";
+  score: string | null;
+  rankPosition: number | null;
+  dimensions: RecommendationDimensions;
+  reasons: RecommendationReason[];
+  ruleVersion: number;
+  locked: boolean;
+  lockedAt: string | null;
+  lockedByName: string | null;
+  lockNote: string | null;
+  computedAt: string;
+};
+
+export const recommendationReasonLabels: Record<string, string> = {
+  CRAFT_MISMATCH: "工艺不符",
+  UNIT_INCOMPATIBLE: "单位不兼容",
+  NO_STOCK: "无可用库存",
+  CANDIDATE_ARCHIVED: "候选已归档",
+  COLOR_DISTANCE_EXCEEDED: "色差超阈值",
+  COMPATIBILITY_BLOCKED: "兼容规则禁止",
+  COMPATIBILITY_ALLOWED: "兼容规则允许"
+};
+
+export type CompatibilityLink = {
+  id: string;
+  candidateId: string;
+  candidateName: string;
+  candidateUnit: string;
+  decision: "ALLOWED" | "BLOCKED";
+  note: string | null;
+  createdAt: string;
+  updatedAt: string;
+};

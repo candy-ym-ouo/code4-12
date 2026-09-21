@@ -45,6 +45,7 @@ onMounted(load);
         <div>
           <el-button v-if="!material.archivedAt" @click="router.push(`/materials/${material.id}/edit`)">编辑</el-button>
           <el-button type="primary" @click="router.push({ path: '/batches/new', query: { materialId: material.id } })">新批次入库</el-button>
+          <el-button @click="router.push({ path: '/substitutions', query: { materialId: material.id } })">替代推荐</el-button>
           <el-button v-if="!material.archivedAt" type="danger" plain @click="archive">归档</el-button>
         </div>
       </header>

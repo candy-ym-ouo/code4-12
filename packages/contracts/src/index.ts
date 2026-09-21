@@ -40,6 +40,25 @@ export type ColorChangeType = (typeof colorChangeTypes)[number];
 export const attachmentOwnerTypes = ["BATCH", "COLOR_CHANGE", "PROJECT", "CONSUMPTION"] as const;
 export type AttachmentOwnerType = (typeof attachmentOwnerTypes)[number];
 
+export const substitutionRejectionReasons = [
+  "CRAFT_MISMATCH",
+  "UNIT_INCOMPATIBLE",
+  "NO_STOCK",
+  "CANDIDATE_ARCHIVED",
+  "COLOR_DISTANCE_EXCEEDED",
+  "COMPATIBILITY_BLOCKED"
+] as const;
+export type SubstitutionRejectionReason = (typeof substitutionRejectionReasons)[number];
+
+export const recommendationStatuses = ["SUGGESTED", "REJECTED"] as const;
+export type RecommendationStatus = (typeof recommendationStatuses)[number];
+
+export const compatibilityDecisions = ["ALLOWED", "BLOCKED"] as const;
+export type CompatibilityDecisionValue = (typeof compatibilityDecisions)[number];
+
+/** redmean 色差的理论上限（约 765），用于把距离归一化为 0..1 */
+export const MAX_COLOR_DISTANCE = 255 * Math.sqrt(2 * (2 + 127.5 / 256) + 4);
+
 export const unitFamilies = {
   g: { family: "MASS", base: "g", factor: "1" },
   kg: { family: "MASS", base: "g", factor: "1000" },
@@ -251,6 +270,53 @@ export const reverseConsumptionSchema = z.object({
 export const projectStatusSchema = z.object({
   status: z.enum(projectStatuses),
   version: z.number().int().positive()
+});
+
+function colorRgb(hex: string): { r: number; g: number; b: number } {
+  return {
+    r: parseInt(hex.slice(1, 3), 16),
+    g: parseInt(hex.slice(3, 5), 16),
+    b: parseInt(hex.slice(5, 7), 16)
+  };
+}
+
+/** redmean 加权 RGB 欧氏距离，比朴素欧氏距离更接近人眼感知 */
+export function colorDistance(leftHex: string, rightHex: string): number {
+  const left = colorRgb(leftHex);
+  const right = colorRgb(rightHex);
+  const rMean = (left.r + right.r) / 2;
+  const dR = left.r - right.r;
+  const dG = left.g - right.g;
+  const dB = left.b - right.b;
+  return Math.sqrt((2 + rMean / 256) * dR * dR + 4 * dG * dG + (2 + (255 - rMean) / 256) * dB * dB);
+}
+
+const ruleWeight = z.number().min(0).max(1);
+
+export const substitutionRuleSetInputSchema = z.object({
+  name: z.string().trim().min(1).max(120),
+  requireSameCraft: z.boolean().default(true),
+  requireUnitCompatibility: z.boolean().default(true),
+  requireInStock: z.boolean().default(false),
+  includeArchived: z.boolean().default(false),
+  maxColorDistance: z.number().min(0).max(765).nullable().default(null),
+  craftWeight: ruleWeight.default(0.35),
+  colorWeight: ruleWeight.default(0.25),
+  unitWeight: ruleWeight.default(0.2),
+  stockWeight: ruleWeight.default(0.2),
+  allowBonus: z.number().min(0).max(0.5).default(0.1)
+}).refine(
+  (value) => value.craftWeight + value.colorWeight + value.unitWeight + value.stockWeight > 0,
+  { message: "四个维度权重之和必须大于 0", path: ["craftWeight"] }
+);
+
+export const compatibilityInputSchema = z.object({
+  decision: z.enum(compatibilityDecisions),
+  note: z.string().trim().max(500).nullable().optional()
+});
+
+export const recommendationLockSchema = z.object({
+  lockNote: z.string().trim().max(500).nullable().optional()
 });
 
 export type Pagination = {
